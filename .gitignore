@@ -1,0 +1,34 @@
+# Node modules
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+build/
+**/.next/
+.next/
+
+# Environment files
+.env
+*.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS system files
+.DS_Store
+Thumbs.db
+
+# Cache
+.cache/
+**/.cache/
+
+# Vite / Webpack
+.vite/
+*.tsbuildinfo
+
+# VSCode / IDE
+.vscode/
+.idea/
