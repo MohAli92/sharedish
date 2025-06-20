@@ -13,7 +13,9 @@ import MealUploadPage from './pages/MealUploadPage';
 import MealDetailsPage from './pages/MealDetailsPage';
 import UserProfilePage from './pages/UserProfilePage';
 import MessagesPage from './pages/MessagesPage';
-import VerifyPhonePage from './pages/VerifyPhonePage'; // ✅ جديد
+import VerifyPhonePage from './pages/VerifyPhonePage';
+import TimelinePage from './pages/TimelinePage';
+import EditUserPage from './pages/EditUserPage'; // ✅ جديد
 
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -49,9 +51,11 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
-                <Route path="/verify-phone" element={<VerifyPhonePage />} /> {/* ✅ الجديد */}
+                <Route path="/verify-phone" element={<VerifyPhonePage />} />
                 <Route path="/meals/:id" element={<MealDetailsPage />} />
                 <Route path="/profile/:userId" element={<UserProfilePage />} />
+                <Route path="/timeline" element={<TimelinePage />} /> {/* ✅ صفحة التايملاين */}
+                <Route path="/edit-profile" element={<EditUserPage />} /> {/* ✅ صفحة تعديل البروفايل */}
 
                 <Route element={<ProtectedRoute />}>
                   <Route path="/upload-meal" element={<MealUploadPage />} />

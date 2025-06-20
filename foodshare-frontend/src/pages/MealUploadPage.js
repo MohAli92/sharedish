@@ -8,39 +8,64 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   Box,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   FormHelperText,
+  Snackbar,
+  Alert,
 } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { styled } from '@mui/system';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+
+const DropZone = styled('div')(({ theme, isdragging }) => ({
+  border: '2px dashed #aaa',
+  borderRadius: '10px',
+  padding: '20px',
+  textAlign: 'center',
+  marginTop: '10px',
+  cursor: 'pointer',
+  backgroundColor: isdragging === 'true' ? '#f0f0f0' : 'transparent',
+}));
 
 const validationSchema = Yup.object().shape({
   title: Yup.string().required('Title is required'),
   description: Yup.string().required('Description is required'),
   location: Yup.string().required('Location is required'),
-  availablePortions: Yup.number().min(1, 'At least 1 portion required'),
+  availablePortions: Yup.number().min(1, 'At least 1 portion required').required(),
   dietaryTags: Yup.array(),
   pickupTime: Yup.date().min(new Date(), 'Pickup time must be in the future'),
-  isFree: Yup.boolean(),
-  price: Yup.number().when('isFree', {
-    is: false,
-    then: Yup.number().min(1, 'Price must be at least 1'),
-  }),
 });
 
 const MealUploadPage = () => {
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [image, setImage] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleImageChange = (file) => {
+    if (file && file.type.startsWith('image/')) {
+      setImage(file);
+    } else {
+      setSnackbar({ open: true, message: 'Only image files are allowed.', severity: 'error' });
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    handleImageChange(file);
+  };
 
   const formik = useFormik({
     initialValues: {
@@ -50,114 +75,93 @@ const MealUploadPage = () => {
       availablePortions: 1,
       dietaryTags: [],
       pickupTime: new Date(Date.now() + 3600000),
-      isFree: true,
-      price: 0,
     },
     validationSchema,
     onSubmit: async (values) => {
+      if (!image) {
+        return setSnackbar({ open: true, message: 'Image is required.', severity: 'error' });
+      }
+
       setIsSubmitting(true);
       try {
         const formData = new FormData();
-        formData.append('title', values.title);
-        formData.append('description', values.description);
-        formData.append('location', values.location);
-        formData.append('availablePortions', values.availablePortions);
-        formData.append('dietaryTags', JSON.stringify(values.dietaryTags));
-        formData.append('pickupTime', values.pickupTime.toISOString());
-        formData.append('isFree', values.isFree);
-        formData.append('price', values.price);
-        if (image) {
-          formData.append('mealImage', image);
-        }
+        Object.entries(values).forEach(([key, value]) => {
+          if (key === 'dietaryTags') {
+            formData.append(key, JSON.stringify(value));
+          } else if (key === 'pickupTime') {
+            formData.append(key, new Date(value).toISOString());
+          } else {
+            formData.append(key, value);
+          }
+        });
+        formData.append('mealImage', image);
 
-        const response = await axios.post('/api/meals', formData, {
+        const response = await axios.post('http://localhost:5000/api/meals', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${currentUser.token}`,
+            ...(user?.token && { Authorization: `Bearer ${user.token}` }),
           },
+          withCredentials: true,
         });
 
-        navigate(`/meals/${response.data._id}`);
+        setSnackbar({ open: true, message: 'Meal uploaded successfully!', severity: 'success' });
+
+        navigate(`/profile/${user._id}`);
+
       } catch (error) {
-        console.error('Error uploading meal:', error);
+        console.error('Upload error:', error);
+        setSnackbar({ open: true, message: 'Failed to upload meal.', severity: 'error' });
       } finally {
         setIsSubmitting(false);
       }
     },
   });
 
-  const handleImageChange = (e) => {
-    if (e.target.files[0]) {
-      setImage(e.target.files[0]);
-    }
-  };
-
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Share a Meal
-        </Typography>
+        <Typography variant="h4" gutterBottom>Share a Meal</Typography>
         <form onSubmit={formik.handleSubmit}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <TextField
-                fullWidth
-                id="title"
-                name="title"
-                label="Meal Title"
-                value={formik.values.title}
-                onChange={formik.handleChange}
+                fullWidth label="Meal Title" id="title" name="title"
+                value={formik.values.title} onChange={formik.handleChange}
                 error={formik.touched.title && Boolean(formik.errors.title)}
                 helperText={formik.touched.title && formik.errors.title}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
-                fullWidth
-                id="description"
-                name="description"
-                label="Description"
-                multiline
-                rows={4}
-                value={formik.values.description}
-                onChange={formik.handleChange}
+                fullWidth label="Description" id="description" name="description"
+                multiline rows={4}
+                value={formik.values.description} onChange={formik.handleChange}
                 error={formik.touched.description && Boolean(formik.errors.description)}
                 helperText={formik.touched.description && formik.errors.description}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
-                fullWidth
-                id="location"
-                name="location"
-                label="Pickup Location"
-                value={formik.values.location}
-                onChange={formik.handleChange}
+                fullWidth label="Location" id="location" name="location"
+                value={formik.values.location} onChange={formik.handleChange}
                 error={formik.touched.location && Boolean(formik.errors.location)}
                 helperText={formik.touched.location && formik.errors.location}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
-                fullWidth
-                id="availablePortions"
-                name="availablePortions"
-                label="Available Portions"
-                type="number"
-                value={formik.values.availablePortions}
-                onChange={formik.handleChange}
+                fullWidth label="Available Portions" type="number" id="availablePortions" name="availablePortions"
+                value={formik.values.availablePortions} onChange={formik.handleChange}
                 error={formik.touched.availablePortions && Boolean(formik.errors.availablePortions)}
                 helperText={formik.touched.availablePortions && formik.errors.availablePortions}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <LocalizationProvider dateAdapter={AdapterDateFns}>
                 <DatePicker
                   label="Pickup Time"
                   value={formik.values.pickupTime}
-                  onChange={(date) => formik.setFieldValue('pickupTime', date)}
-                  minDateTime={new Date()}
+                  onChange={(val) => formik.setFieldValue('pickupTime', val)}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -169,84 +173,45 @@ const MealUploadPage = () => {
                 />
               </LocalizationProvider>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="dietary-tags-label">Dietary Tags</InputLabel>
                 <Select
-                  labelId="dietary-tags-label"
-                  id="dietaryTags"
-                  name="dietaryTags"
-                  multiple
-                  value={formik.values.dietaryTags}
+                  labelId="dietary-tags-label" id="dietaryTags" name="dietaryTags"
+                  multiple value={formik.values.dietaryTags}
                   onChange={(e) => formik.setFieldValue('dietaryTags', e.target.value)}
                   renderValue={(selected) => selected.join(', ')}
                 >
                   {['Vegetarian', 'Vegan', 'Gluten-Free', 'Halal', 'Kosher', 'Dairy-Free'].map((tag) => (
-                    <MenuItem key={tag} value={tag}>
-                      {tag}
-                    </MenuItem>
+                    <MenuItem key={tag} value={tag}>{tag}</MenuItem>
                   ))}
                 </Select>
                 <FormHelperText>Select applicable dietary tags</FormHelperText>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl component="fieldset">
-                <Typography component="legend">Is this meal free?</Typography>
-                <Box display="flex" alignItems="center">
-                  <Button
-                    variant={formik.values.isFree ? 'contained' : 'outlined'}
-                    onClick={() => formik.setFieldValue('isFree', true)}
-                    sx={{ mr: 2 }}
-                  >
-                    Yes
-                  </Button>
-                  <Button
-                    variant={!formik.values.isFree ? 'contained' : 'outlined'}
-                    onClick={() => formik.setFieldValue('isFree', false)}
-                  >
-                    No
-                  </Button>
-                </Box>
-              </FormControl>
-            </Grid>
-            {!formik.values.isFree && (
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  id="price"
-                  name="price"
-                  label="Price per portion"
-                  type="number"
-                  value={formik.values.price}
-                  onChange={formik.handleChange}
-                  error={formik.touched.price && Boolean(formik.errors.price)}
-                  helperText={formik.touched.price && formik.errors.price}
-                />
-              </Grid>
-            )}
-            <Grid item xs={12}>
+            <Grid xs={12}>
+              <DropZone
+                isdragging={isDragging.toString()}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById('uploadInput').click()}
+              >
+                <Typography variant="body2">
+                  {image ? image.name : 'Drag and drop image here or click to select'}
+                </Typography>
+              </DropZone>
               <input
-                accept="image/*"
-                id="meal-image-upload"
+                id="uploadInput"
                 type="file"
-                style={{ display: 'none' }}
-                onChange={handleImageChange}
+                hidden accept="image/*"
+                onChange={(e) => handleImageChange(e.target.files[0])}
               />
-              <label htmlFor="meal-image-upload">
-                <Button variant="contained" component="span" sx={{ mr: 2 }}>
-                  Upload Image
-                </Button>
-              </label>
-              {image && <Typography variant="body2">{image.name}</Typography>}
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={isSubmitting}
-                sx={{ width: '100%', py: 2 }}
+                type="submit" variant="contained" color="primary"
+                fullWidth sx={{ py: 2 }} disabled={isSubmitting}
               >
                 {isSubmitting ? 'Sharing...' : 'Share Meal'}
               </Button>
@@ -254,6 +219,16 @@ const MealUploadPage = () => {
           </Grid>
         </form>
       </Paper>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

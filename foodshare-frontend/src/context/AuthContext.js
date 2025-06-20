@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
-import axios from '../axiosInstance'; // ✅ استخدام axiosInstance
+import axios from '../axiosInstance';
 import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
@@ -13,14 +13,21 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       try {
         const token = localStorage.getItem('token');
+        const userId = localStorage.getItem('userId');
         if (token) {
           const res = await axios.get('/api/auth/me', {
             headers: { Authorization: `Bearer ${token}` }
           });
-          setUser(res.data);
+
+          // ✅ حفظ userId في localStorage (احتياطياً)
+          localStorage.setItem('userId', res.data._id);
+
+          // ✅ تضمين التوكن جوا بيانات اليوزر
+          setUser({ ...res.data, token });
         }
       } catch (err) {
         localStorage.removeItem('token');
+        localStorage.removeItem('userId');
       } finally {
         setLoading(false);
       }
@@ -32,8 +39,14 @@ export const AuthProvider = ({ children }) => {
   const login = async (payload) => {
     try {
       const res = await axios.post('/api/auth/login', payload);
+
+      // ✅ حفظ التوكن و userId في localStorage
       localStorage.setItem('token', res.data.token);
-      setUser(res.data.user);
+      localStorage.setItem('userId', res.data.user._id);
+
+      // ✅ حفظ التوكن داخل بيانات المستخدم
+      setUser({ ...res.data.user, token: res.data.token });
+
       navigate('/');
     } catch (err) {
       alert(err.response?.data?.message || 'Login failed');
@@ -42,6 +55,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userId');
     setUser(null);
     navigate('/login');
   };
