@@ -1,0 +1,21 @@
+{
+  "name": "FoodShare Fullstack Dev",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "postCreateCommand": "cd frontend && npm install && cd ../backend && npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "xabikos.JavaScriptSnippets",
+        "formulahendry.auto-close-tag",
+        "formulahendry.auto-rename-tag"
+      ]
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  }
+}
